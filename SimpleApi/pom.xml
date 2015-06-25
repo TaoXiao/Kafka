@@ -31,17 +31,35 @@
           <artifactId>kafka_2.10</artifactId>
           <version>0.8.2.0</version>
       </dependency>
-<!--
+
     <dependency>
       <groupId>org.apache.kafka</groupId>
       <artifactId>kafka-examples</artifactId>
       <version>0.8.2.0</version>
-    </dependency> -->
+    </dependency>
     <dependency>
       <groupId>com.101tec</groupId>
       <artifactId>zkclient</artifactId>
       <version>0.3</version>
     </dependency>
-
   </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>   <!-- 这个插件让Maven去编译Scala代码, 并能将 src/main/scala 识别为scala代码目录-->
+                <groupId>org.scala-tools</groupId>
+                <artifactId>maven-scala-plugin</artifactId>
+                <!-- <version> 不要在这里指定 version，否则找不到对应的pom文件 </version>  -->
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>testCompile</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

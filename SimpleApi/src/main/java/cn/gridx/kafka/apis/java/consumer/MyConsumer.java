@@ -1,5 +1,6 @@
-package cn.gridx.kafka.apis.consumer;
+package cn.gridx.kafka.apis.java.consumer;
 
+import kafka.consumer.Consumer;
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.ConsumerIterator;
 import kafka.consumer.KafkaStream;
@@ -41,7 +42,7 @@ public class MyConsumer extends Thread {
 
     public MyConsumer(String topic) {
         this.topic = topic;
-        consumerConn = kafka.consumer.Consumer.createJavaConsumerConnector(createConsumerConfig());
+        consumerConn = Consumer.createJavaConsumerConnector(createConsumerConfig());
     }
 
     private static ConsumerConfig createConsumerConfig()

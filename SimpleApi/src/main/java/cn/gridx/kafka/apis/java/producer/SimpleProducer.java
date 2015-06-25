@@ -1,4 +1,4 @@
-package cn.gridx.kafka.apis.producer;
+package cn.gridx.kafka.apis.java.producer;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
