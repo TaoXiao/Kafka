@@ -2,7 +2,8 @@ package cn.gridx.kafka.apis.scala.consumer
 
 import java.util.Properties
 
-import kafka.consumer.{KafkaStream, ConsumerConfig, Consumer}
+import cn.gridx.kafka.apis.scala.Common
+import kafka.consumer.{ConsumerIterator, KafkaStream, ConsumerConfig, Consumer}
 import kafka.message.MessageAndMetadata
 import org.apache.kafka.clients.producer.Producer
 
@@ -32,14 +33,13 @@ import scala.collection.mutable.HashMap
  *
  */
 object HighLevelConsumer {
-    def ZK_CONN     = "ecs1:2181,ecs2:2181,ecs3:2181"
     def GROUP_ID    = "xt-group-1"
     def TOPIC       = "my-2nd-topic"
 
     def main(args: Array[String]): Unit = {
         println(" 开始了 !!")
 
-        val connector = Consumer.create(createConfig)
+        val connector = Consumer.create(Common.createConsumerConfig(GROUP_ID))
 
         /**
          * `topicCountMap` tells Kafka how many threads we are providing for which topics
@@ -80,48 +80,20 @@ object HighLevelConsumer {
         println("# of message streams is " + msgStreams.get(TOPIC).size)
 
         val stream: KafkaStream[Array[Byte], Array[Byte]] = msgStreams.get(TOPIC).get(0)
-        val it = stream.iterator()
+        val it: ConsumerIterator[Array[Byte], Array[Byte]] = stream.iterator()
 
         // 会消费topic中目前还未被消费的message
         while (it.hasNext) {
             val data: MessageAndMetadata[Array[Byte], Array[Byte]] = it.next
+
             // 如果produce的是正常的ProducerRecord[String, String],那么输出的key和value是正常的字符串，
-            println("msg -> " + new String(data.message) + "  ||   key -> " + new String(data.key))
+            println("key -> [" + new String(data.key) + "], message -> [" + new String(data.message) +
+                        "], partition -> [" + data.partition + "], " + ", offset -> [" + data.offset + "]")
         }
 
         println(" 结束了 !!")
     }
 
 
-    /**
-     *  结果配置项的意义
-     *
-     * `zookeeper.connect` : Kafka uses ZK to store offset of messages consumed for
-     *         a specific topic and partition by this Consumer Group
-     *
-     * `group.id` : this string defines the Consumer Group this process is consuming on behalf of
-     *
-     * `zookeeper.session.timeout.ms` :  how many milliseconds Kafka will wait for ZK to respond to
-     *          a read or write request before giving up and continuing to consume messages
-     *
-     *
-     *  `zookeeper.sync.time.ms` : the number of milliseconds a ZK follower can be behind the master
-     *          before an error occurs
-     *
-     *  `auto.commit.interval.ms` : how often updates to the consumed offsets are written to ZK.
-     *          Since the commit frequency if time based instead of # of messages consumed, if an
-     *          error occurs between updates to ZK on restart you will get replayed messages
-     *
-     * @return
-     */
-    def createConfig(): ConsumerConfig = {
-        val props = new Properties();
-        props.put("zookeeper.connect", ZK_CONN)
-        props.put("group.id", GROUP_ID)
-        props.put("zookeeper.session.timeout.ms", "400")
-        props.put("zookeeper.sync.time.ms", "200")
-        props.put("auto.commit.interval.ms", "1000")
 
-        new ConsumerConfig(props)
-    }
 }

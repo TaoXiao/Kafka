@@ -1,4 +1,4 @@
-package cn.gridx.kafaka;
+package cn.gridx.kafka.test;
 
 import junit.framework.Test;
 import junit.framework.TestCase;
