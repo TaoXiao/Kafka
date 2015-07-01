@@ -18,28 +18,6 @@ object MultiThreadConsumer {
     def GROUP_ID    = "xt-group-1"
 
 
-    /**
-     * 另一个producer产生的消息如下：
-     *  i=0,  offset=290,  partition=1
-        i=1,  offset=225,  partition=0
-        i=2,  offset=226,  partition=0
-        i=3,  offset=291,  partition=1
-        i=4,  offset=292,  partition=1
-        i=5,  offset=227,  partition=0
-     *
-     * 运行结果如下：
-     *
-     *  开始了
-        # of streams is 1
-        futureNumer->[0],  key->[key-0],  message->[msg-0],  partition->[1],  offset->[290]
-        futureNumer->[1],  key->[key-1],  message->[msg-1],  partition->[0],  offset->[225]
-        futureNumer->[1],  key->[key-2],  message->[msg-2],  partition->[0],  offset->[226]
-        futureNumer->[0],  key->[key-3],  message->[msg-3],  partition->[1],  offset->[291]
-        futureNumer->[0],  key->[key-4],  message->[msg-4],  partition->[1],  offset->[292]
-        futureNumer->[1],  key->[key-5],  message->[msg-5],  partition->[0],  offset->[227]
-        结束了
-     * @param args
-     */
     def main(args: Array[String]): Unit = {
         println(" 开始了 ")
 
@@ -48,14 +26,16 @@ object MultiThreadConsumer {
         val topicCountMap = new HashMap[String, Int]()
         topicCountMap.put(TOPIC, 2) // TOPIC在创建时就指定了它有2个partition
 
-        val msgStreams: Map[String, List[KafkaStream[Array[Byte], Array[Byte]]]]
+        val topicStreamsMap: Map[String, List[KafkaStream[Array[Byte], Array[Byte]]]]
                 = connector.createMessageStreams(topicCountMap)
 
-        println("# of streams is " + msgStreams.get(TOPIC).get.size)
+        val streams: List[KafkaStream[Array[Byte], Array[Byte]]] = topicStreamsMap.get(TOPIC).get
+
+        println("# of streams is " + streams.size)
 
         // 变量futureIndex用来输出Future的序号
         var futureIndex = 0
-        for (stream <- msgStreams.get(TOPIC).get) {
+        for (stream <- streams) {
             processSingleStream(futureIndex, stream)
             futureIndex = futureIndex+1
         }

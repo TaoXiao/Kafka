@@ -46,7 +46,7 @@
 
     <build>
         <plugins>
-            <plugin>   <!-- 这个插件让Maven去编译Scala代码, 并能将 src/main/scala 识别为scala代码目录-->
+            <plugin>
                 <groupId>org.scala-tools</groupId>
                 <artifactId>maven-scala-plugin</artifactId>
                 <!-- <version> 不要在这里指定 version，否则找不到对应的pom文件 </version>  -->
@@ -56,6 +56,22 @@
                             <goal>compile</goal>
                             <goal>testCompile</goal>
                         </goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals><goal>add-source</goal></goals>
+                        <configuration>
+                            <sources>
+                                <!-- <source>src/main/java</source> -->
+                                <source>src/main/scala</source>
+                            </sources>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

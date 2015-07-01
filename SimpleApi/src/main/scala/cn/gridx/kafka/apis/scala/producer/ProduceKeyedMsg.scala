@@ -22,18 +22,18 @@ object ProduceKeyedMsg {
         props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer].getName)
         props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer].getName)
 
-        val producer = new KafkaProducer[String, String](props)
+        val producer = new KafkaProducer[Int, String](props)
 
-        var total = 0
+        var totalCount = 0
 
-        for (i <- 0 to 10000) {
-            val ret: Future[RecordMetadata] = producer.send(new ProducerRecord(TOPIC, "key-" + i, i.toString))
-            //val metadata = ret.get  // 打印出 metadata
-            total += i
-            //println("i=" + i + ",  offset=" + metadata.offset() + ",  partition=" + metadata.partition())
+        for (i <- 0 to 16) {
+            val ret: Future[RecordMetadata] = producer.send(new ProducerRecord(TOPIC, i, s"value-${i.toString}"))
+            val metadata = ret.get  // 打印出 metadata
+            totalCount += i
+            println("i=" + i + " | offset=" + metadata.offset() + "  |  partition=" + metadata.partition())
         }
 
-        println(s"10001 messages where sent, total value sum is $total")
+        println(s"$totalCount messages where sent")
 
         producer.close
     }

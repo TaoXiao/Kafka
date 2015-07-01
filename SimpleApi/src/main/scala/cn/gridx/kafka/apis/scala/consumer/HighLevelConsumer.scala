@@ -1,11 +1,9 @@
 package cn.gridx.kafka.apis.scala.consumer
 
-import java.util.Properties
 
 import cn.gridx.kafka.apis.scala.Common
-import kafka.consumer.{ConsumerIterator, KafkaStream, ConsumerConfig, Consumer}
+import kafka.consumer.{ConsumerIterator, KafkaStream, Consumer}
 import kafka.message.MessageAndMetadata
-import org.apache.kafka.clients.producer.Producer
 
 import scala.collection.Map
 import scala.collection.mutable.HashMap
@@ -34,7 +32,7 @@ import scala.collection.mutable.HashMap
  */
 object HighLevelConsumer {
     def GROUP_ID    = "xt-group-1"
-    def TOPIC       = "my-2nd-topic"
+    def TOPIC       = "my-3rd-topic"
 
     def main(args: Array[String]): Unit = {
         println(" 开始了 !!")
