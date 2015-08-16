@@ -42,7 +42,14 @@ object CustomPartitionerExample {
         val producer = new KafkaProducer[String, String](props)
 
         for (i <- 0 to 10) {
-            // 这里的`i%2`实际上就是为每一个record指定其partition number，必须是一个合法的数字
+            /** 这里的`i%2`实际上就是为每一个record指定其partition number，必须是一个合法的数字
+              * 怎样获知一个topic当前的partition数量?
+              *
+                ·   If a valid partition number is specified that partition will be used when sending the record.
+                ·   If no partition is specified but a key is present a partition will be chosen using a hash of the key
+                    （除了hash之外，是否有可定义的方式？）.
+                ·   If neither key nor partition is present a partition will be assigned in a round-robin fashion.
+            */
             val record = new ProducerRecord(Topic, i%2, i.toString, "val_"+i.toString)
             producer.send(record)
         }
@@ -64,7 +71,7 @@ object CustomPartitionerExample {
 
         val connector: ConsumerConnector = Consumer.create(config)
         val topicStreamsMap: collection.Map[String, List[KafkaStream[Array[Byte], Array[Byte]]]]
-        = connector.createMessageStreams(topicCountMap)
+            = connector.createMessageStreams(topicCountMap)
 
         val stream: KafkaStream[Array[Byte], Array[Byte]] = topicStreamsMap.get(Topic).get.head
         val it: ConsumerIterator[Array[Byte], Array[Byte]] = stream.iterator()
@@ -72,7 +79,7 @@ object CustomPartitionerExample {
         while (it.hasNext) {
             val data: MessageAndMetadata[Array[Byte], Array[Byte]] = it.next
             // 现在要打印出每一条Message的key
-            println(s"key -> [${new String(data.key)}}] | value -> [${new String(data.message)}] | " +
+            println(s"key -> [${new String(data.key)}] | value -> [${new String(data.message)}] | " +
                     s"partition -> [${data.partition}] | offset -> [${data.offset}] | topic -> [${data.topic}]")
         }
     }

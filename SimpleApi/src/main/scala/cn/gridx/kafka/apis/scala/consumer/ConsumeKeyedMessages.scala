@@ -8,6 +8,7 @@ import org.apache.kafka.clients.producer._
 import org.apache.kafka.common.serialization.StringSerializer
 
 
+import scala.collection
 import scala.concurrent.{Await, future}
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -36,7 +37,8 @@ object ConsumeKeyedMessages {
         val connector = Consumer.create(Common.createConsumerConfig(Group_Id))
 
         val topicCountMap =  Map(Topic -> 1)
-        val topicStreamsMap = connector.createMessageStreams(topicCountMap)
+        val topicStreamsMap: collection.Map[String, List[KafkaStream[Array[Byte], Array[Byte]]]]
+                = connector.createMessageStreams(topicCountMap)
         val streams = topicStreamsMap.get(Topic).get
 
         val f = processKeyedMsgStream(streams.head)
@@ -54,7 +56,7 @@ object ConsumeKeyedMessages {
             val message = new String(data.message)
             val partition = data.partition
             val offset = data.offset
-            println(s"Key->$key | message->${message}} | partition->${partition}  | offset->${offset}")
+            println(s"Key -> $key | message(value) -> ${message}} | partition -> ${partition}  | offset -> ${offset}")
         }
     }
 
@@ -72,11 +74,11 @@ object ConsumeKeyedMessages {
 
         val producer = new KafkaProducer[String, String](props)
         
-        for (i <- 0 to 10) {
+        for (i <- 0 to 9) {
             val record = new ProducerRecord(Topic, i.toString, "val_" + i.toString)
             producer.send(record, new Callback{
                 def onCompletion(metadata:RecordMetadata, ex:Exception): Unit = {
-                    println(s"partition ---->  ${metadata.partition}")
+                    println(s"Sending complete ! Key -> $i  |  Value -> val_${i}  |  partition -> ${metadata.partition} ")
                 }
             })
         }

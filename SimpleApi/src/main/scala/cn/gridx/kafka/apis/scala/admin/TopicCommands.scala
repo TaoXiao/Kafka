@@ -14,7 +14,7 @@ object TopicCommands {
     }
 
     /**
-     * 用AP来创建topic
+     * 用API来创建topic
      */
     def createTopicExample(): Unit = {
         val zkClient = new ZkClient(Common.ZK_CONN)
