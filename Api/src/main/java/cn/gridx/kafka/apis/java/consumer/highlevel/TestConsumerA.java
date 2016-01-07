@@ -3,6 +3,7 @@ package cn.gridx.kafka.apis.java.consumer.highlevel;
 import kafka.consumer.ConsumerConfig;
 import kafka.consumer.KafkaStream;
 import kafka.javaapi.consumer.ConsumerConnector;
+import kafka.serializer.Decoder;
 
 import java.util.HashMap;
 import java.util.List;
@@ -35,11 +36,17 @@ public class TestConsumerA {
     topicCountMap.put(topic, 3);
 
     /** 创建 map of (topic -> list of streams) */
-    Map<String, List<KafkaStream<byte[], byte[]>>> topicStreamsMap =
-        consumerConn.createMessageStreams(topicCountMap);
+    //Map<String, List<KafkaStream<byte[], byte[]>>> topicStreamsMap =
+    //    consumerConn.createMessageStreams(topicCountMap);
+
+    /** 在这里可以为key和value直接提供各自的 decoder,
+     * 这样consumer thread 收到的解码后的数据
+     * */
+    Map<String, List<KafkaStream<Integer, String>>> topicStreamsMap =
+      consumerConn.createMessageStreams(topicCountMap, new IntDecoder(), new StringDecoder());
 
     /** 取出 `topic-B` 对应的 streams */
-    List<KafkaStream<byte[], byte[]>> streams = topicStreamsMap.get(topic);
+    List<KafkaStream<Integer, String>> streams = topicStreamsMap.get(topic);
 
     /** 创建一个容量为3的线程池 */
     ExecutorService executor = Executors.newFixedThreadPool(3);
@@ -62,6 +69,24 @@ public class TestConsumerA {
      * */
     Thread.sleep(5*1000);
     executor.shutdown();
+  }
+
+  public static class IntDecoder implements Decoder<Integer> {
+    @Override
+    public Integer fromBytes(byte[] bytes) {
+      if (null == bytes || bytes.length != 4)
+        throw new IllegalArgumentException("Invalid bytes can not be casted to integer");
+      return java.nio.ByteBuffer.wrap(bytes).getInt();
+    }
+  }
+
+  public static class StringDecoder implements Decoder<String> {
+    @Override
+    public String fromBytes(byte[] bytes) {
+      if (null == bytes )
+        throw new IllegalArgumentException("Null bytes");
+      return new String(bytes);
+    }
   }
 }
 

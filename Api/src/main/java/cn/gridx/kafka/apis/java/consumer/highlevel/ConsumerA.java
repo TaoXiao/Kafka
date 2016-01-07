@@ -11,9 +11,9 @@ import kafka.message.MessageAndMetadata;
 
 public class ConsumerA implements  Runnable {
   public String title;
-  public KafkaStream<byte[], byte[]> stream;
+  public KafkaStream<Integer, String> stream;
 
-  public ConsumerA(String title, KafkaStream<byte[], byte[]> stream) {
+  public ConsumerA(String title, KafkaStream<Integer, String> stream) {
     this.title  = title;
     this.stream = stream;
   }
@@ -22,18 +22,22 @@ public class ConsumerA implements  Runnable {
   public void run() {
     System.out.println("开始运行 " + title);
 
-    ConsumerIterator<byte[], byte[]> it = stream.iterator();
+    /** 由于在调用 `ConsumerConnector#createMessageStreams`
+     *  已经提供了key和value的decoder，因此这里收到是解码后的数据，
+     *  而不是原始的 byte[]
+     *  */
+    ConsumerIterator<Integer, String> it = stream.iterator();
     /**
      * 不停地从stream读取新到来的消息，在等待新的消息时，hasNext()会阻塞
      * 如果调用 `ConsumerConnector#shutdown`，那么`hasNext`会返回false
      * */
     while (it.hasNext()) {
-      MessageAndMetadata<byte[], byte[]> data = it.next();
+      MessageAndMetadata<Integer, String> data = it.next();
       String  topic      = data.topic();
       int     partition  = data.partition();
       long    offset     = data.offset();
-      int     key        = bytes2Int(data.key());     /** key和value都是bytes */
-      String  msg        = new String(data.message()); /** 需要转换 */
+      int     key        = data.key();
+      String  msg        = data.message();
 
       System.out.println(String.format(
           "Consumer: [%s],  Topic: [%s],  PartitionId: [%d],  Offset: [%d],  Key: [%d], msg: [%s]" ,
