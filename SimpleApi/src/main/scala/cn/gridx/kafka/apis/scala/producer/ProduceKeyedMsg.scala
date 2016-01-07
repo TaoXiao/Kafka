@@ -8,39 +8,27 @@ import org.apache.kafka.clients.producer.{RecordMetadata, ProducerRecord, KafkaP
 import org.apache.kafka.common.serialization.StringSerializer
 
 /**
- * Created by tao on 6/24/15.
- */
-object ProduceKeyedMsg {
-    def BROKER_LIST = "ecs1:9092,ecs2:9092"
-    def TOPIC = "my-3rd-topic"
+* Created by tao on 6/24/15.
+*/
 
+object ProduceKeyedMsg extends App {
+    val Topic = "topic-C"
+    val props = new Properties()
+    props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG       , "ecs1:9092,ecs2:9092,ecs3:9092")
+    props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG    , classOf[IntegerSerializer].getName)
+    props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG  , classOf[StringSerializer].getName)
 
-    def main(args: Array[String]): Unit = {
-        println("开始产生消息！")
+    val producer = new KafkaProducer[Int, String](props)
+    val numPartitions = producer.partitionsFor(Topic).size()    // 计算出“topic-B”的partitions的数量
 
-        val props = new Properties()
-        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BROKER_LIST)
-        props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, classOf[IntegerSerializer].getName)
-        props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, classOf[StringSerializer].getName)
+    println(s""" Topic \"$Topic\" 有$numPartitions 个partitions """)
 
-        val producer = new KafkaProducer[Int, String](props)
-
-        var totalCount = 0
-
-        for (i <- 0 to 16) {
-            /** 这里不指定send方法的callback
-              * send是异步发送，将record放入buffer后就立即返回
-              * The result of the `send` is a {@link RecordMetadata} specifying the partition
-              * the record was sent to and the offset it was assigned.
-            */
-            val ret: Future[RecordMetadata] = producer.send(new ProducerRecord(TOPIC, i, s"value-${i.toString}"))
-            val metadata: RecordMetadata = ret.get  // 打印出 metadata
-            totalCount += i
-            println(s"Message #$i:   offset=" + metadata.offset() + "  ,  partition=" + metadata.partition())
-        }
-
-        println(s"$totalCount messages where sent")
-
-        producer.close
+    for (i <- 0 to 16) {
+        val partitionId = i%numPartitions   // 用key取模的方式确定每条消息的partitionId
+        val meta: Future[RecordMetadata] = producer.send(
+                new ProducerRecord(Topic, partitionId, i, s""""$i""""))
+        println(s"Key: $i,  Partition-Id: ${meta.get.partition}")
     }
+
+    producer.close()
 }

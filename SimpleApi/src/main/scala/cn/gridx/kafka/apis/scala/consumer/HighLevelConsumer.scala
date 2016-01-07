@@ -28,6 +28,24 @@ import scala.collection.mutable.HashMap
 
     HighLevelConsumer启动后，会等待名为`my-2nd-topic`的topic中的消息。
     此时，运行cn.gridx.kafka.apis.scala.producer.ProduceKeyedMsg 来产生新消息
+
+
+    High Level Consumer stores the last offset read from a specific partition in ZooKeeper.
+    This offset is stored based on the name provided to Kafka when the process starts.
+    This name is referred to as the Consumer Group.
+
+ 参考 [[https://cwiki.apache.org/confluence/display/KAFKA/Consumer+Group+Example]]
+
+
+    The first thing to know about using a High Level Consumer is that it can (and should!) be a
+multi-threaded application. The threading model revolves around the number of partitions in your
+topic and there are some very specific rules:
+    1). if you provide more threads than there are partitions on the topic, some threads will never see a message
+    2). if you have more partitions than you have threads, some threads will receive data from multiple partitions
+    3). if you have multiple partitions per thread there is NO guarantee about the order you receive messages,
+        other than that within the partition the offsets will be sequential.
+    4). adding more processes/threads will cause Kafka to re-balance, possibly changing the assignment of a Partition to a Thread.
+
  *
  */
 object HighLevelConsumer {

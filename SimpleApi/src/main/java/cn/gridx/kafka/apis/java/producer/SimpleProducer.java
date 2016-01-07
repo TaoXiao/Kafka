@@ -18,8 +18,7 @@ public class SimpleProducer
     private static final String BROKER_LIST = "ecs1:9092,ecs2:9092";
     private static final String Topic = "my-2nd-topic";
 
-    public static void main( String[] args )
-    {
+    public static void main( String[] args ) {
         System.out.println( "Hello Kafka!" );
 
         new SimpleProducer().producerAPI();

@@ -9,7 +9,7 @@ import kafka.consumer.ConsumerConfig
  */
 object Common {
     def ZK_CONN     = "ecs1:2181,ecs2:2181,ecs3:2181"
-    def BROKER_LIST = "ecs1:9092,ecs2:9092"
+    def BROKER_LIST = "ecs1:9092,ecs2:9092,ecs3:9092,ecs4:9092,ecs5:9092"
 
     /**
      *  结果配置项的意义
