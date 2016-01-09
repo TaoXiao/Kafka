@@ -1,16 +1,18 @@
 package cn.gridx.kafka.apis.java.consumer.simple;
 
+import kafka.api.FetchRequest;
+import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.Broker;
 import kafka.common.ErrorMapping;
 import kafka.common.TopicAndPartition;
 import kafka.javaapi.*;
 import kafka.javaapi.consumer.SimpleConsumer;
+import kafka.message.Message;
+import kafka.message.MessageAndOffset;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.nio.ByteBuffer;
+import java.util.*;
 
 /**
  * Created by tao on 1/8/16.
@@ -34,6 +36,7 @@ public class ConsumerB {
       SimpleConsumer consumer = null;
 
       try {
+        /** 连接到不同的broker时，需要对该broker创建新的`SimpleConsumer`实例 */
         consumer = new SimpleConsumer(broker, port, 100*1000, 64*1024,
             "leaderLookupClient");
         List<String> topics = Collections.singletonList(topic);
@@ -58,7 +61,7 @@ public class ConsumerB {
             + "”) 的Leader Broker 时发生异常，原因为: \n" + ex.toString());
       } finally {
         if (null != consumer)
-          consumer.close();
+          consumer.close(); /** 关闭连接到该broker的`SimpleConsumer`*/
       }
     } // end => for (String broker : seedBrokers)
 
@@ -145,5 +148,133 @@ public class ConsumerB {
 
     // 查询失败
     return null;
+  }
+
+
+  /**
+   * 从Kafka中读取消息
+   * 这个函数中，我们假定读取的消息的key是Int, value是String
+   * 每收到一条消息，会将它的内容在控制台上显示出来
+   * */
+  public void
+  readData(List<String> seedBrokers, int port, String clientId,
+           String topic, int partition, long reqOffset, int size) {
+    System.out.println("[Info]: 开始读取数据\n");
+
+    /** 首先查询(topic, partition)的leader broker */
+    PartitionMetadata parMeta = findLeader(seedBrokers, port, topic, partition);
+    String leaderHost = parMeta.leader().host();
+    List<Broker> replicaBrokers = parMeta.replicas();
+
+    /**
+     * 处理错误响应，最多重试5次
+     * **/
+    FetchResponse resp;
+    int numErrors = 0;
+    while (true)  {
+      /** 为这个leader partition 创建一个SimpleConsumer */
+      SimpleConsumer consumer =
+          new SimpleConsumer(leaderHost, port, 100*1000, 64*1024, clientId);
+
+      /** 创建FetchRequest，并利用SimpleConsumer获取FetchResponse */
+      resp = consumer.fetch(
+          new FetchRequestBuilder()
+                .clientId(clientId)
+                .addFetch(topic, partition, reqOffset, size)
+                .build());
+
+      if (resp.hasError()) {
+        numErrors++;
+        short errorCode = resp.errorCode(topic, partition);
+        String errorMsg = ErrorMapping.exceptionFor(errorCode).toString();
+        System.err.println("[Error]: 请求获取消息时出现错误: " +
+            "\n\t目标lead broker为 " + consumer.host() +
+            ", 错误代码为 " + errorCode +
+            ", 错误原因为 " + errorMsg);
+
+        if (5 == numErrors) {
+          System.err.println("错误次数达到5，不再重试，退出！");
+          consumer.close();
+          return;
+        }
+
+        /** 这种错误不需要重新寻找leader partition */
+        if (errorCode == ErrorMapping.OffsetOutOfRangeCode()) {
+          reqOffset = getLastOffset(consumer, topic, partition,
+              kafka.api.OffsetRequest.LatestTime(), clientId);
+          System.err.println(
+              "[Error]: request offset 超出合法范围，自动调整为" + reqOffset);
+          continue; /** 用新的offset重试 */
+        }
+        /** 用新的leader broker来创建SimpleConsumer  */
+        else {
+          consumer.close(); // 关闭老的consumer
+          List<String> replicaHosts = new ArrayList<String>();
+          for (Broker broker : replicaBrokers)
+            replicaHosts.add(broker.host());
+          leaderHost = findNewLeader(leaderHost, replicaHosts,
+              port, topic, partition).host();
+        }
+      } else {
+        break; /** 没有发生错误则直接跳出循环 */
+      }
+    } // End  => while (true)
+
+    /**
+     * 开始真正地读取消息
+     */
+    long numRead = 0;
+    for (MessageAndOffset data : resp.messageSet(topic, partition)) {
+      /** 要确保：实际读出的offset 不小于 要求读取的offset。
+       *  因为如果Kafka对消息进行压缩，那么fetch request将会返回whole compressed block，
+       *  即使我们要求的offset不是该 whole compressed block的起始offset。
+       *  这可能会造成读取到之前已经读取过的消息。
+       *  */
+      long currentOffset = data.offset();
+      if (currentOffset < reqOffset) {
+        System.err.println("[Error]: Current offset = " + currentOffset +
+          ",  Requested offset = " + reqOffset + ", Skip. ");
+        continue;
+      }
+
+      /** `nextOffset` 向最后被读取的消息发起询问：“下一个offset的值是什么？” */
+      long nextOffset = data.nextOffset();
+
+      /** Message结构中包含: bytes, key, codec, payloadOffset, payloadSize */
+      Message msg = data.message();
+      ByteBuffer keyBuf = msg.key();
+      byte[] key = new byte[keyBuf.limit()];
+      keyBuf.get(key);
+
+      ByteBuffer payload = msg.payload();
+      byte[] value = new byte[payload.limit()];
+      payload.get(value);
+
+      System.out.println("消息$" + (numRead+1) +
+          ", offset = " + currentOffset + ", next offset = " + nextOffset +
+          "\n\tkey = " + bytes2Int(key) + ", value = " + bytes2Str(value));
+
+      numRead++;
+    }
+  }
+
+  /**
+   * function: byte[] -> int
+   * */
+  private int bytes2Int(byte[] bytes) {
+    if (null == bytes || bytes.length != 4)
+      throw new IllegalArgumentException("无法将byte[]转换为int");
+    else
+      return java.nio.ByteBuffer.wrap(bytes).getInt();
+  }
+
+  /**
+   * function: byte[] -> String
+   * */
+  private String bytes2Str(byte[] bytes) {
+    if (null == bytes || bytes.length < 1)
+      throw new IllegalArgumentException("无法将byte[]转为String");
+    else
+      return new String(bytes);
   }
 }
