@@ -3,7 +3,6 @@ package cn.gridx.kafka.apis.java.consumer.simple;
 import kafka.api.OffsetRequest;
 import kafka.cluster.Broker;
 import kafka.javaapi.PartitionMetadata;
-import kafka.javaapi.consumer.SimpleConsumer;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -11,11 +10,12 @@ import java.util.List;
 /**
  * Created by tao on 1/8/16.
  */
-public class TestConsumerB {
+public class TestSimpleConsumer {
   public static void main(String[] args) {
     // TestFindLeader();
     // TestGetLastOffset();
-    TestFindNewLeader();
+    //TestFindNewLeader();
+    TestReadData(args[0], Integer.parseInt(args[1]),  Long.parseLong(args[2]), Integer.parseInt(args[3]));
   }
 
 
@@ -26,7 +26,7 @@ public class TestConsumerB {
    * 找到(Topic=“topic-C”, Partition=0)当前的leader partition
    * */
   public static void TestFindLeader() {
-    ConsumerB consumer = new ConsumerB();
+    SimpleConsumerUtil consumer = new SimpleConsumerUtil();
     List<String> seedBrokers = new ArrayList<>();
     seedBrokers.add("ecs1.njzd.com");
     seedBrokers.add("ecs3.njzd.com");
@@ -52,30 +52,22 @@ public class TestConsumerB {
     /**
      * 首先查询出(Topic=“topic-C”, Partition=“1”)的leader broker's hostname
      * */
-    ConsumerB consumerB  = new ConsumerB();
-    PartitionMetadata parMeta = consumerB.findLeader(brokers, port, topic, partition);
-    String leader = parMeta.leader().host();
-
-    /**
-     * 利用上面查询出的leader broker host来
-     * 构造一个`SimpleConsumer`，查询(Topic=“topic-C”, Partition=“1”)的offsets
-     * 且构造SimpleConsumer的参数`leader`只能是hostname
-     * */
-    SimpleConsumer consumer =
-        new SimpleConsumer(leader, port, 100*1000, 64*1024, "fetchOffsetClient");
+    SimpleConsumerUtil util = new SimpleConsumerUtil();
+    PartitionMetadata parMeta = util.findLeader(brokers, port, topic, partition);
+    String leaderHost = parMeta.leader().host();
 
     /** 最老的offset（依然在log中的msg）*/
-    long earliestOffset = consumerB.getLastOffset(consumer,
-        topic, partition, OffsetRequest.EarliestTime(), "Client - 查询offset");
+    long earliestOffset = util.getLastOffset(leaderHost, port, "Client - 查询offset",
+        topic, partition, OffsetRequest.EarliestTime());
     /** 最新的offset */
-    long latestOffset = consumerB.getLastOffset(consumer, topic, partition,
-        OffsetRequest.LatestTime(), "Client - 查询offset");
+    long latestOffset = util.getLastOffset(leaderHost, port, "Client - 查询offset",
+        topic, partition, OffsetRequest.LatestTime());
     /** 当前的offset */
-    long currentOffset = consumerB.getLastOffset(consumer,topic, partition,
-        System.currentTimeMillis(), "Client - 查询offset");
+    long currentOffset = util.getLastOffset(leaderHost, port, "Client - 查询offset",
+        topic, partition, System.currentTimeMillis());
 
     System.out.println("(Topic=“" + topic + "”, Partition=“" + partition +
-        "”) 的leader host是" + leader);
+        "”) 的leader host是" + leaderHost);
     System.out.println("(Topic=“" + topic + "”, Partition=“" + partition +
         "”) 中的offsets: " +
         "\n\tEarliest Offset: " + earliestOffset +
@@ -97,7 +89,7 @@ public class TestConsumerB {
     /**
      * 首先找到(Topic=“topic-C”, Partition=2)的leader broker与replica brokers
      * */
-    ConsumerB consumer = new ConsumerB();
+    SimpleConsumerUtil consumer = new SimpleConsumerUtil();
     List<String> seedBrokers = new ArrayList<>();
     seedBrokers.add("ecs1.njzd.com");
     seedBrokers.add("ecs3.njzd.com");
@@ -139,4 +131,21 @@ public class TestConsumerB {
     Broker newLeader = consumer.findNewLeader(leaderHost, replicaHosts, port, topic, partition);
     System.out.println("新的leader broker 为 " + newLeader.host());
   }
+
+
+
+/**
+ * 测试方法 : readData
+ *
+ * */
+public static void TestReadData(String topic, int partition, long reqOffset, int fetchSize) {
+  List<String> brokers = new ArrayList<>();
+  brokers.add("ecs1");
+  brokers.add("ecs4");
+  int port = 9092;
+
+  SimpleConsumerUtil util = new SimpleConsumerUtil();
+  util.readData(brokers, port, "ClientReadData",
+      topic, partition, reqOffset, fetchSize);
+}
 }

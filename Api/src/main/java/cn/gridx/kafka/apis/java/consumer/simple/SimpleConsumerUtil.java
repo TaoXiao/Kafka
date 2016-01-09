@@ -1,6 +1,5 @@
 package cn.gridx.kafka.apis.java.consumer.simple;
 
-import kafka.api.FetchRequest;
 import kafka.api.FetchRequestBuilder;
 import kafka.api.PartitionOffsetRequestInfo;
 import kafka.cluster.Broker;
@@ -19,7 +18,7 @@ import java.util.*;
  *
  * 这是一个 Simple Consumer
  */
-public class ConsumerB {
+public class SimpleConsumerUtil {
   /**
    * 为给定的(topic, partition)找到它的leader broker
    * seedBrokers并不一定要是全部的brokers，只要包含一个live broker，
@@ -84,15 +83,20 @@ public class ConsumerB {
    * 各种失败代码的含义可以查询这里：kafka.common.ErrorMapping
    * */
   public long
-  getLastOffset(SimpleConsumer consumer, String topic, int partition,
-                long time, String clientName) {
+  getLastOffset(String leaderHost, int port, String clientId,
+                String topic, int partition, long time) {
+    /** 用leader host  创建一个SimpleConsumer */
+    SimpleConsumer consumer =
+        new SimpleConsumer(leaderHost, port, 100*1000, 64*1024, clientId);
 
     TopicAndPartition topicAndPartition = new TopicAndPartition(topic, partition);
     Map<TopicAndPartition, PartitionOffsetRequestInfo> reqInfo = new HashMap<>();
     reqInfo.put(topicAndPartition, new PartitionOffsetRequestInfo(time, 1));
     OffsetRequest req =
-        new OffsetRequest(reqInfo, kafka.api.OffsetRequest.CurrentVersion(), clientName);
+        new OffsetRequest(reqInfo, kafka.api.OffsetRequest.CurrentVersion(), clientId);
     OffsetResponse resp = consumer.getOffsetsBefore(req);
+
+    consumer.close();
 
     /** 处理失败 */
     if (resp.hasError()) {
@@ -158,7 +162,7 @@ public class ConsumerB {
    * */
   public void
   readData(List<String> seedBrokers, int port, String clientId,
-           String topic, int partition, long reqOffset, int size) {
+           String topic, int partition, long reqOffset, int fetchSize) {
     System.out.println("[Info]: 开始读取数据\n");
 
     /** 首先查询(topic, partition)的leader broker */
@@ -166,21 +170,22 @@ public class ConsumerB {
     String leaderHost = parMeta.leader().host();
     List<Broker> replicaBrokers = parMeta.replicas();
 
+    /** 为这个leader partition 创建一个SimpleConsumer */
+    SimpleConsumer consumer =
+        new SimpleConsumer(leaderHost, port, 100*1000, 64*1024, clientId);
+
     /**
      * 处理错误响应，最多重试5次
      * **/
     FetchResponse resp;
     int numErrors = 0;
-    while (true)  {
-      /** 为这个leader partition 创建一个SimpleConsumer */
-      SimpleConsumer consumer =
-          new SimpleConsumer(leaderHost, port, 100*1000, 64*1024, clientId);
 
+    while (true)  {
       /** 创建FetchRequest，并利用SimpleConsumer获取FetchResponse */
       resp = consumer.fetch(
           new FetchRequestBuilder()
                 .clientId(clientId)
-                .addFetch(topic, partition, reqOffset, size)
+                .addFetch(topic, partition, reqOffset, fetchSize)
                 .build());
 
       if (resp.hasError()) {
@@ -200,25 +205,32 @@ public class ConsumerB {
 
         /** 这种错误不需要重新寻找leader partition */
         if (errorCode == ErrorMapping.OffsetOutOfRangeCode()) {
-          reqOffset = getLastOffset(consumer, topic, partition,
-              kafka.api.OffsetRequest.LatestTime(), clientId);
+          reqOffset = getLastOffset(leaderHost, port, clientId,
+              topic, partition, kafka.api.OffsetRequest.LatestTime());
           System.err.println(
               "[Error]: request offset 超出合法范围，自动调整为" + reqOffset);
-          continue; /** 用新的offset重试 */
+          continue; //  用新的offset重试
         }
         /** 用新的leader broker来创建SimpleConsumer  */
         else {
-          consumer.close(); // 关闭老的consumer
           List<String> replicaHosts = new ArrayList<String>();
           for (Broker broker : replicaBrokers)
             replicaHosts.add(broker.host());
           leaderHost = findNewLeader(leaderHost, replicaHosts,
               port, topic, partition).host();
+          /**
+           * 用新的leader来创建一个SimpleConsumer
+           * */
+          consumer.close();
+          consumer =
+              new SimpleConsumer(leaderHost, port, 100*1000, 64*1024, clientId);
         }
       } else {
         break; /** 没有发生错误则直接跳出循环 */
       }
     } // End  => while (true)
+
+    consumer.close();
 
     /**
      * 开始真正地读取消息
@@ -250,12 +262,14 @@ public class ConsumerB {
       byte[] value = new byte[payload.limit()];
       payload.get(value);
 
-      System.out.println("消息$" + (numRead+1) +
-          ", offset = " + currentOffset + ", next offset = " + nextOffset +
-          "\n\tkey = " + bytes2Int(key) + ", value = " + bytes2Str(value));
+      System.out.printf("消息$%-2d , offset=%-2d , nextOffset=%-2d" +
+          " , key=%-2d , value=%s \n",
+          numRead+1, currentOffset, nextOffset, bytes2Int(key), bytes2Str(value));
 
       numRead++;
     }
+
+    System.out.println("[INFO]: 读取完毕，共读取了 " + numRead + " 条消息");
   }
 
   /**

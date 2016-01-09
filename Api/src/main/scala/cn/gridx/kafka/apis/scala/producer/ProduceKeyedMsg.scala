@@ -12,7 +12,7 @@ import org.apache.kafka.common.serialization.StringSerializer
 */
 
 object ProduceKeyedMsg extends App {
-    val Topic = "topic-C"
+    val Topic = args(0)
     val props = new Properties()
     props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG       , "ecs1:9092,ecs2:9092,ecs3:9092")
     props.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG    , classOf[IntegerSerializer].getName)
@@ -26,7 +26,7 @@ object ProduceKeyedMsg extends App {
     for (i <- 0 to 16) {
         val partitionId = i%numPartitions   // 用key取模的方式确定每条消息的partitionId
         val meta: Future[RecordMetadata] = producer.send(
-                new ProducerRecord(Topic, partitionId, i, s""""$i""""))
+                new ProducerRecord(Topic, partitionId, i, s""""msg-$i""""))
         println(s"Key: $i,  Partition-Id: ${meta.get.partition}")
     }
 
