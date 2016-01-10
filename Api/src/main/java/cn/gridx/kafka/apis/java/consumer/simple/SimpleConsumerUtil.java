@@ -118,7 +118,8 @@ public class SimpleConsumerUtil {
    * 当原来的leader崩溃后，找出新的leader
    * */
   public Broker
-  findNewLeader(String oldLeader, List<String> replicaBrokers, int port, String topic, int partition) {
+  findNewLeader(String oldLeader, List<String> replicaBrokers, int port,
+                String topic, int partition) {
     /**
      * 最多尝试5次，如果还找不到则查询new leader失败
      * */

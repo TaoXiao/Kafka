@@ -128,7 +128,8 @@ public class TestSimpleConsumer {
     /**
      * 下面开始调用 `findNewLeader` 找出新的leader broker
      * */
-    Broker newLeader = consumer.findNewLeader(leaderHost, replicaHosts, port, topic, partition);
+    Broker newLeader =
+        consumer.findNewLeader(leaderHost, replicaHosts, port, topic, partition);
     System.out.println("新的leader broker 为 " + newLeader.host());
   }
 
